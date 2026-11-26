@@ -3,25 +3,13 @@ import crypto from 'crypto'
 import { CSRF_TOKEN } from '../config'
 import ForbiddenError from '../errors/forbidden-error'
 
-// Endpoint-ы, которые сами ВЫДАЮТ CSRF-токен (login/register/refresh)
-// выполняются до существования cookie, поэтому проверка для них отключается.
-const EXEMPT_PATHS: { method: string; path: RegExp }[] = [
-    { method: 'POST', path: /^\/auth\/(login|register|refresh)$/ },
-]
-
-// Double-Submit CSRF: токен выдаётся в не-httpOnly cookie, а в мутирующих
-// запросах возвращается в заголовке X-CSRF-Token. Сервер сравнивает значения.
+// Double-Submit CSRF: токен выдаётся в не-httpOnly cookie `_csrf`, а в
+// мутирующих запросах возвращается в заголовке X-CSRF-Token. Сервер сравнивает
+// значения cookie и заголовка, что исключает CSRF-атаки из других сайтов.
 export function csrfProtection() {
     return (req: Request, _res: Response, next: NextFunction) => {
         const safeMethods = ['GET', 'HEAD', 'OPTIONS']
         if (safeMethods.includes(req.method)) {
-            return next()
-        }
-
-        const exempt = EXEMPT_PATHS.some(
-            ({ method, path }) => method === req.method && path.test(req.path)
-        )
-        if (exempt) {
             return next()
         }
 
@@ -36,9 +24,16 @@ export function csrfProtection() {
     }
 }
 
-// Выдаёт CSRF-токен для нового пользователя (вызывается при login/register/refresh)
+// Выдаёт CSRF-токен: кладёт его в не-httpOnly cookie `_csrf` и возвращает.
 export function issueCsrfToken(_req: Request, res: Response) {
     const token = crypto.randomBytes(32).toString('hex')
     res.cookie(CSRF_TOKEN.cookie.name, token, CSRF_TOKEN.cookie.options)
     return token
+}
+
+// Обработчик GET /auth/csrf-token по контракту тестов: возвращает 200 с полем
+// csrfToken и устанавливает cookie `_csrf`.
+export function getCsrfTokenHandler(_req: Request, res: Response) {
+    const csrfToken = issueCsrfToken(_req, res)
+    return res.status(200).json({ csrfToken })
 }

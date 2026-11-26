@@ -69,14 +69,25 @@ class Api {
         return this.request<UserResponseToken>('/auth/refresh', {
             method: 'POST',
             credentials: 'include',
-            headers: { 'X-CSRF-Token': getCookie('csrfToken') || '' },
+            headers: { 'X-CSRF-Token': getCookie('_csrf') || '' },
         })
+    }
+
+    // Гарантирует наличие CSRF-токена: если cookie _csrf ещё нет,
+    // запрашиваем его через GET /auth/csrf-token (устанавливает cookie).
+    protected ensureCsrfToken = async () => {
+        if (!getCookie('_csrf')) {
+            await this.request<{ csrfToken: string }>('/auth/csrf-token', {
+                method: 'GET',
+                credentials: 'include',
+            })
+        }
     }
 
     // Возвращает заголовки, общие для всех авторизованных запросов.
     // CSRF-токен берётся из не-httpOnly cookie (double-submit).
     protected authHeaders = (extra: Record<string, string> = {}) => {
-        const csrfToken = getCookie('csrfToken') || ''
+        const csrfToken = getCookie('_csrf') || ''
         return {
             Authorization: `Bearer ${getCookie('accessToken')}`,
             'X-CSRF-Token': csrfToken,
@@ -91,6 +102,7 @@ class Api {
         try {
             return await this.request<T>(endpoint, options)
         } catch (error) {
+            await this.ensureCsrfToken()
             const refreshData = await this.refreshToken()
             if (!refreshData.success) {
                 return Promise.reject(refreshData)
@@ -226,23 +238,27 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
         )
     }
 
-    loginUser = (data: UserLoginBodyDto) => {
+    loginUser = async (data: UserLoginBodyDto) => {
+        await this.ensureCsrfToken()
         return this.request<UserResponseToken>('/auth/login', {
             method: 'POST',
             body: JSON.stringify(data),
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRF-Token': getCookie('_csrf') || '',
             },
             credentials: 'include',
         })
     }
 
-    registerUser = (data: UserRegisterBodyDto) => {
+    registerUser = async (data: UserRegisterBodyDto) => {
+        await this.ensureCsrfToken()
         return this.request<UserResponseToken>('/auth/register', {
             method: 'POST',
             body: JSON.stringify(data),
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRF-Token': getCookie('_csrf') || '',
             },
             credentials: 'include',
         })

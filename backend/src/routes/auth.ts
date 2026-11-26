@@ -8,10 +8,12 @@ import {
     register,
     updateCurrentUser,
 } from '../controllers/auth'
+import { getCsrfTokenHandler } from '../middlewares/csrf'
 import auth from '../middlewares/auth'
 
 const authRouter = Router()
 
+authRouter.get('/csrf-token', getCsrfTokenHandler)
 authRouter.get('/user', auth, getCurrentUser)
 authRouter.patch('/me', auth, updateCurrentUser)
 authRouter.get('/user/roles', auth, getCurrentUserRoles)

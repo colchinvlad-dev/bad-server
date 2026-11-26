@@ -31,7 +31,7 @@ export const getCustomers = async (
         } = req.query
 
         const currentPage = Math.max(1, Number(page) || 1)
-        const pageSize = Math.min(100, Math.max(1, Number(limit) || 10))
+        const pageSize = Math.min(10, Math.max(1, Number(limit) || 10))
 
         const filters: FilterQuery<Partial<IUser>> = {}
 
