@@ -34,8 +34,14 @@ export const getOrders = async (
 
         const filters: FilterQuery<Partial<IOrder>> = {}
 
-        if (status && typeof status === 'string') {
-            filters.status = status
+        if (status) {
+            const ALLOWED_STATUS = ['pending', 'completed', 'delivering', 'cancelled']
+            if (typeof status === 'string' && ALLOWED_STATUS.includes(status)) {
+                filters.status = status
+            } else {
+                res.status(400).json({ error: 'Некорректный параметр status' })
+                return
+            }
         }
 
         if (totalAmountFrom) {
