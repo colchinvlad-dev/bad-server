@@ -3,6 +3,7 @@ import { FilterQuery } from 'mongoose'
 import NotFoundError from '../errors/not-found-error'
 import Order from '../models/order'
 import User, { IUser } from '../models/user'
+import escapeRegExp from '../utils/escapeRegExp'
 
 // TODO: Добавить guard admin
 // eslint-disable-next-line max-len
@@ -28,6 +29,9 @@ export const getCustomers = async (
             orderCountTo,
             search,
         } = req.query
+
+        const currentPage = Math.max(1, Number(page) || 1)
+        const pageSize = Math.min(100, Math.max(1, Number(limit) || 10))
 
         const filters: FilterQuery<Partial<IUser>> = {}
 
@@ -92,7 +96,7 @@ export const getCustomers = async (
         }
 
         if (search) {
-            const searchRegex = new RegExp(search as string, 'i')
+            const searchRegex = new RegExp(escapeRegExp(search as string), 'i')
             const orders = await Order.find(
                 {
                     $or: [{ deliveryAddress: searchRegex }],
@@ -108,16 +112,25 @@ export const getCustomers = async (
             ]
         }
 
+        const ALLOWED_SORT_FIELDS = [
+            'createdAt',
+            'name',
+            'totalAmount',
+            'orderCount',
+            'lastOrderDate',
+        ]
         const sort: { [key: string]: any } = {}
 
         if (sortField && sortOrder) {
-            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
+            if (ALLOWED_SORT_FIELDS.includes(sortField as string)) {
+                sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
+            }
         }
 
         const options = {
             sort,
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
+            skip: (currentPage - 1) * pageSize,
+            limit: pageSize,
         }
 
         const users = await User.find(filters, null, options).populate([
@@ -137,15 +150,15 @@ export const getCustomers = async (
         ])
 
         const totalUsers = await User.countDocuments(filters)
-        const totalPages = Math.ceil(totalUsers / Number(limit))
+        const totalPages = Math.ceil(totalUsers / pageSize)
 
         res.status(200).json({
             customers: users,
             pagination: {
                 totalUsers,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage,
+                pageSize,
             },
         })
     } catch (error) {
@@ -179,11 +192,19 @@ export const updateCustomer = async (
     next: NextFunction
 ) => {
     try {
+        // Whitelist полей: админ не может менять роли и чувствительные данные.
+        const { name, phone, email } = req.body
+        const update: { name?: string; phone?: string; email?: string } = {}
+        if (typeof name === 'string') update.name = name
+        if (typeof phone === 'string') update.phone = phone
+        if (typeof email === 'string') update.email = email
+
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
-            req.body,
+            update,
             {
                 new: true,
+                runValidators: true,
             }
         )
             .orFail(

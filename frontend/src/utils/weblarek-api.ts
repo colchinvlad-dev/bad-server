@@ -66,10 +66,22 @@ class Api {
     }
 
     private refreshToken = () => {
-        return this.request<UserResponseToken>('/auth/token', {
-            method: 'GET',
+        return this.request<UserResponseToken>('/auth/refresh', {
+            method: 'POST',
             credentials: 'include',
+            headers: { 'X-CSRF-Token': getCookie('csrfToken') || '' },
         })
+    }
+
+    // Возвращает заголовки, общие для всех авторизованных запросов.
+    // CSRF-токен берётся из не-httpOnly cookie (double-submit).
+    protected authHeaders = (extra: Record<string, string> = {}) => {
+        const csrfToken = getCookie('csrfToken') || ''
+        return {
+            Authorization: `Bearer ${getCookie('accessToken')}`,
+            'X-CSRF-Token': csrfToken,
+            ...extra,
+        }
     }
 
     protected requestWithRefresh = async <T>(
@@ -88,7 +100,7 @@ class Api {
                 ...options,
                 headers: {
                     ...options.headers,
-                    Authorization: `Bearer ${getCookie('accessToken')}`,
+                    ...this.authHeaders(),
                 },
             })
         }
@@ -150,10 +162,7 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
         return this.requestWithRefresh<IOrderResult>('/order', {
             method: 'POST',
             body: JSON.stringify(order),
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${getCookie('accessToken')}`,
-            },
+            headers: this.authHeaders({ 'Content-Type': 'application/json' }),
         }).then((data: IOrderResult) => data)
     }
 
@@ -164,10 +173,7 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
         return this.requestWithRefresh<IOrderResult>(`/order/${orderNumber}`, {
             method: 'PATCH',
             body: JSON.stringify({ status }),
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${getCookie('accessToken')}`,
-            },
+            headers: this.authHeaders({ 'Content-Type': 'application/json' }),
         })
     }
 
@@ -181,9 +187,7 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
             `/order/all?${queryParams}`,
             {
                 method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${getCookie('accessToken')}`,
-                },
+                headers: this.authHeaders(),
             }
         )
     }
@@ -198,9 +202,7 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
             `/order/all/me?${queryParams}`,
             {
                 method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${getCookie('accessToken')}`,
-                },
+                headers: this.authHeaders(),
             }
         )
     }
@@ -208,7 +210,7 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
     getOrderByNumber = (orderNumber: string): Promise<IOrderResult> => {
         return this.requestWithRefresh<IOrderResult>(`/order/${orderNumber}`, {
             method: 'GET',
-            headers: { Authorization: `Bearer ${getCookie('accessToken')}` },
+            headers: this.authHeaders(),
         })
     }
 
@@ -219,9 +221,7 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
             `/order/me/${orderNumber}`,
             {
                 method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${getCookie('accessToken')}`,
-                },
+                headers: this.authHeaders(),
             }
         )
     }
@@ -251,14 +251,14 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
     getUser = () => {
         return this.requestWithRefresh<UserResponse>('/auth/user', {
             method: 'GET',
-            headers: { Authorization: `Bearer ${getCookie('accessToken')}` },
+            headers: this.authHeaders(),
         })
     }
 
     getUserRoles = () => {
         return this.requestWithRefresh<string[]>('/auth/user/roles', {
             method: 'GET',
-            headers: { Authorization: `Bearer ${getCookie('accessToken')}` },
+            headers: this.authHeaders(),
         })
     }
 
@@ -272,9 +272,7 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
             `/customers?${queryParams}`,
             {
                 method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${getCookie('accessToken')}`,
-                },
+                headers: this.authHeaders(),
             }
         )
     }
@@ -284,29 +282,24 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
             `/customers/${idCustomer}`,
             {
                 method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${getCookie('accessToken')}`,
-                },
+                headers: this.authHeaders(),
             }
         )
     }
 
     logoutUser = () => {
         return this.request<ServerResponse<unknown>>('/auth/logout', {
-            method: 'GET',
+            method: 'POST',
             credentials: 'include',
+            headers: { 'X-CSRF-Token': getCookie('csrfToken') || '' },
         })
     }
 
     createProduct = (data: Omit<IProduct, '_id'>) => {
-        console.log(data)
         return this.requestWithRefresh<IProduct>('/product', {
             method: 'POST',
             body: JSON.stringify(data),
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${getCookie('accessToken')}`,
-            },
+            headers: this.authHeaders({ 'Content-Type': 'application/json' }),
         }).then((data: IProduct) => ({
             ...data,
             image: {
@@ -320,9 +313,7 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
         return this.requestWithRefresh<IFile>('/upload', {
             method: 'POST',
             body: data,
-            headers: {
-                Authorization: `Bearer ${getCookie('accessToken')}`,
-            },
+            headers: this.authHeaders(),
         }).then((data) => ({
             ...data,
             fileName: data.fileName,
@@ -333,10 +324,7 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
         return this.requestWithRefresh<IProduct>(`/product/${id}`, {
             method: 'PATCH',
             body: JSON.stringify(data),
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${getCookie('accessToken')}`,
-            },
+            headers: this.authHeaders({ 'Content-Type': 'application/json' }),
         }).then((data: IProduct) => ({
             ...data,
             image: {
@@ -349,9 +337,7 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
     deleteProduct = (id: string) => {
         return this.requestWithRefresh<IProduct>(`/product/${id}`, {
             method: 'DELETE',
-            headers: {
-                Authorization: `Bearer ${getCookie('accessToken')}`,
-            },
+            headers: this.authHeaders(),
         })
     }
 }

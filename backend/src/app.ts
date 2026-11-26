@@ -5,9 +5,11 @@ import 'dotenv/config'
 import express, { json, urlencoded } from 'express'
 import mongoose from 'mongoose'
 import path from 'path'
-import { DB_ADDRESS } from './config'
+import { ALLOWED_ORIGINS, DB_ADDRESS } from './config'
 import errorHandler from './middlewares/error-handler'
 import serveStatic from './middlewares/serverStatic'
+import { csrfProtection } from './middlewares/csrf'
+import { generalLimiter, authLimiter } from './middlewares/rate-limit'
 import routes from './routes'
 
 const { PORT = 3000 } = process.env
@@ -15,16 +17,30 @@ const app = express()
 
 app.use(cookieParser())
 
-app.use(cors())
-// app.use(cors({ origin: ORIGIN_ALLOW, credentials: true }));
-// app.use(express.static(path.join(__dirname, 'public')));
+const corsOptions = {
+    origin(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+        // Разрешаем запросы без origin (curl, серверные вызовы) и из разрешённых списка
+        if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+            return callback(null, true)
+        }
+        return callback(new Error('Not allowed by CORS'))
+    },
+    credentials: true,
+}
+
+app.use(cors(corsOptions))
+app.options('*', cors(corsOptions))
 
 app.use(serveStatic(path.join(__dirname, 'public')))
 
-app.use(urlencoded({ extended: true }))
-app.use(json())
+// Лимиты тела запроса — защита от переполнения памяти (buffer overflow / DoS)
+app.use(urlencoded({ extended: true, limit: '100kb' }))
+app.use(json({ limit: '100kb' }))
+app.use(csrfProtection())
 
-app.options('*', cors())
+app.use(generalLimiter)
+app.use('/auth', authLimiter)
+
 app.use(routes)
 app.use(errors())
 app.use(errorHandler)

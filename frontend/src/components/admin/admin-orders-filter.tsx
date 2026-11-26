@@ -1,6 +1,7 @@
 import { ordersActions, ordersSelector } from '@slices/orders'
 import { useActionCreators, useDispatch, useSelector } from '@store/hooks'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { StatusType } from '@types'
 import { fetchOrdersWithFilters } from '../../services/slice/orders/thunk'
 import { AppRoute } from '../../utils/constants'
 import Filter from '../filter'
@@ -15,13 +16,23 @@ export default function AdminFilterOrders() {
     const { updateFilter, clearFilters } = useActionCreators(ordersActions)
     const filterOrderOption = useSelector(ordersSelector.selectFilterOption)
 
-    const handleFilter = (filters: Record<string, any>) => {
-        dispatch(updateFilter({ ...filters, status: filters.status.value }))
+    const handleFilter = (filters: Record<string, unknown>) => {
+        const statusValue =
+            filters.status && typeof filters.status === 'object'
+                ? ((filters.status as { value?: unknown }).value as
+                      | ''
+                      | StatusType
+                      | undefined)
+                : (filters.status as '' | StatusType | undefined)
+        dispatch(updateFilter({ ...filters, status: statusValue }))
         const queryParams: { [key: string]: string } = {}
         Object.entries(filters).forEach(([key, value]) => {
             if (value) {
                 queryParams[key] =
-                    typeof value === 'object' ? value.value : value.toString()
+                    typeof value === 'object'
+                        ? (value as { value?: unknown }).value?.toString() ||
+                          ''
+                        : value.toString()
             }
         })
         setSearchParams(queryParams)

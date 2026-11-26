@@ -1,7 +1,8 @@
 import { Request, Express } from 'express'
 import multer, { FileFilterCallback } from 'multer'
 import { mkdirSync } from 'fs'
-import { join } from 'path'
+import path from 'path'
+import crypto from 'crypto'
 
 type DestinationCallback = (error: Error | null, destination: string) => void
 type FileNameCallback = (error: Error | null, filename: string) => void
@@ -12,7 +13,7 @@ const storage = multer.diskStorage({
         _file: Express.Multer.File,
         cb: DestinationCallback
     ) => {
-        const destinationPath = join(
+        const destinationPath = path.join(
             __dirname,
             process.env.UPLOAD_PATH_TEMP
                 ? `../public/${process.env.UPLOAD_PATH_TEMP}`
@@ -29,7 +30,11 @@ const storage = multer.diskStorage({
         file: Express.Multer.File,
         cb: FileNameCallback
     ) => {
-        cb(null, file.originalname)
+        // Используем безопасное случайное имя вместо originalname,
+        // чтобы исключить Path Traversal и перезапись чужих файлов.
+        const ext = path.extname(file.originalname).toLowerCase().slice(0, 10)
+        const safeName = `${crypto.randomBytes(16).toString('hex')}${ext}`
+        cb(null, safeName)
     },
 })
 
@@ -53,4 +58,11 @@ const fileFilter = (
     return cb(null, true)
 }
 
-export default multer({ storage, fileFilter })
+export default multer({
+    storage,
+    fileFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5 MB — защита от переполнения памяти
+        files: 1,
+    },
+})
