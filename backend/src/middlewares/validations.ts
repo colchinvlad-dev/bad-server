@@ -1,8 +1,12 @@
 import { Joi, celebrate } from 'celebrate'
 import { Types } from 'mongoose'
 
-// eslint-disable-next-line no-useless-escape
-export const phoneRegExp = /^(\+\d+)?(?:\s|-?|\(?\d+\)?)+$/
+// Безопасный (линейный) regex для телефона: цифры, `+`, пробелы, `-`, `(`, `)`
+// Один повтор по символу без вложенных групп исключает катастрофический бэктрекинг (ReDoS)
+export const phoneRegExp = /^\+?[0-9()\-\s]{6,20}$/
+
+// Ограничение длины строковых полей (защита от переполнения буфера/памяти)
+export const MAX_STR_LEN = 256
 
 export enum PaymentType {
     Card = 'card',
@@ -32,19 +36,19 @@ export const validateOrderBody = celebrate({
                     'Указано не валидное значение для способа оплаты, возможные значения - "card", "online"',
                 'string.empty': 'Не указан способ оплаты',
             }),
-        email: Joi.string().email().required().messages({
+        email: Joi.string().email().required().max(MAX_STR_LEN).messages({
             'string.empty': 'Не указан email',
         }),
-        phone: Joi.string().required().pattern(phoneRegExp).messages({
+        phone: Joi.string().required().pattern(phoneRegExp).max(MAX_STR_LEN).messages({
             'string.empty': 'Не указан телефон',
         }),
-        address: Joi.string().required().messages({
+        address: Joi.string().required().max(MAX_STR_LEN).messages({
             'string.empty': 'Не указан адрес',
         }),
         total: Joi.number().required().messages({
             'string.empty': 'Не указана сумма заказа',
         }),
-        comment: Joi.string().optional().allow(''),
+        comment: Joi.string().optional().allow('').max(MAX_STR_LEN),
     }),
 })
 
@@ -58,13 +62,13 @@ export const validateProductBody = celebrate({
             'string.empty': 'Поле "title" должно быть заполнено',
         }),
         image: Joi.object().keys({
-            fileName: Joi.string().required(),
-            originalName: Joi.string().required(),
+            fileName: Joi.string().required().max(MAX_STR_LEN),
+            originalName: Joi.string().required().max(MAX_STR_LEN),
         }),
-        category: Joi.string().required().messages({
+        category: Joi.string().required().max(MAX_STR_LEN).messages({
             'string.empty': 'Поле "category" должно быть заполнено',
         }),
-        description: Joi.string().required().messages({
+        description: Joi.string().required().max(MAX_STR_LEN).messages({
             'string.empty': 'Поле "description" должно быть заполнено',
         }),
         price: Joi.number().allow(null),
@@ -78,11 +82,11 @@ export const validateProductUpdateBody = celebrate({
             'string.max': 'Максимальная длина поля "name" - 30',
         }),
         image: Joi.object().keys({
-            fileName: Joi.string().required(),
-            originalName: Joi.string().required(),
+            fileName: Joi.string().required().max(MAX_STR_LEN),
+            originalName: Joi.string().required().max(MAX_STR_LEN),
         }),
-        category: Joi.string(),
-        description: Joi.string(),
+        category: Joi.string().max(MAX_STR_LEN),
+        description: Joi.string().max(MAX_STR_LEN),
         price: Joi.number().allow(null),
     }),
 })
@@ -106,7 +110,7 @@ export const validateUserBody = celebrate({
             'string.min': 'Минимальная длина поля "name" - 2',
             'string.max': 'Максимальная длина поля "name" - 30',
         }),
-        password: Joi.string().min(6).required().messages({
+        password: Joi.string().min(6).max(128).required().messages({
             'string.empty': 'Поле "password" должно быть заполнено',
         }),
         email: Joi.string()
@@ -124,11 +128,12 @@ export const validateAuthentication = celebrate({
         email: Joi.string()
             .required()
             .email()
+            .max(MAX_STR_LEN)
             .message('Поле "email" должно быть валидным email-адресом')
             .messages({
                 'string.required': 'Поле "email" должно быть заполнено',
             }),
-        password: Joi.string().required().messages({
+        password: Joi.string().required().max(128).messages({
             'string.empty': 'Поле "password" должно быть заполнено',
         }),
     }),

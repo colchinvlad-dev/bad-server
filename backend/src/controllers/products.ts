@@ -8,24 +8,38 @@ import NotFoundError from '../errors/not-found-error'
 import Product from '../models/product'
 import movingFile from '../utils/movingFile'
 
+// Поля, которые разрешено задавать/изменять у товара (whitelist)
+const PRODUCT_FIELDS = ['title', 'description', 'category', 'price', 'image']
+
+// Возвращает только разрешённые поля из body
+function pickProductFields(body: Record<string, unknown>) {
+    return PRODUCT_FIELDS.reduce<Record<string, unknown>>((acc, field) => {
+        if (body[field] !== undefined) {
+            acc[field] = body[field]
+        }
+        return acc
+    }, {})
+}
+
 // GET /product
 const getProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { page = 1, limit = 5 } = req.query
+        const page = Math.max(1, Number(req.query.page) || 1)
+        const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 5))
         const options = {
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
+            skip: (page - 1) * limit,
+            limit,
         }
         const products = await Product.find({}, null, options)
         const totalProducts = await Product.countDocuments({})
-        const totalPages = Math.ceil(totalProducts / Number(limit))
+        const totalPages = Math.ceil(totalProducts / limit)
         return res.send({
             items: products,
             pagination: {
                 totalProducts,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: page,
+                pageSize: limit,
             },
         })
     } catch (err) {
@@ -96,8 +110,8 @@ const updateProduct = async (
             productId,
             {
                 $set: {
-                    ...req.body,
-                    price: req.body.price ? req.body.price : null,
+                    ...pickProductFields(req.body),
+                    price: req.body.price !== undefined ? req.body.price : null,
                     image: req.body.image ? req.body.image : undefined,
                 },
             },

@@ -15,6 +15,7 @@ interface PaginationResult<_, U> {
     setLimit: (limit: number) => void
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const usePagination = <T, U>(
     asyncAction: AsyncThunk<T, Record<string, unknown>, any>,
     selector: (state: RootState) => U[],
@@ -32,9 +33,12 @@ const usePagination = <T, U>(
 
     const limit = Number(searchParams.get('limit')) || defaultLimit
 
-    const fetchData = async (params: Record<string, any>) => {
-        const response: any = await dispatch(asyncAction(params))
-        setTotalPages(response.payload.pagination.totalPages)
+    const fetchData = async (params: Record<string, unknown>) => {
+        const response = (await dispatch(
+            asyncAction(params)
+        )) as { payload?: { pagination?: { totalPages?: number } } }
+        const total = response?.payload?.pagination?.totalPages ?? 1
+        setTotalPages(total)
     }
 
     useEffect(() => {
@@ -44,14 +48,14 @@ const usePagination = <T, U>(
                 setPage(1)
             }
         })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage, limit, searchParams])
 
-    const updateURL = (newParams: Record<string, any>) => {
-        3
+    const updateURL = (newParams: Record<string, unknown>) => {
         const updatedParams = new URLSearchParams(searchParams)
         Object.entries(newParams).forEach(([key, value]) => {
-            if (value !== undefined) {
-                updatedParams.set(key, value.toString())
+            if (value !== undefined && value !== null) {
+                updatedParams.set(key, String(value))
             } else {
                 updatedParams.delete(key)
             }
