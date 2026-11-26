@@ -4,7 +4,6 @@ import { constants } from 'http2'
 import jwt, { JwtPayload } from 'jsonwebtoken'
 import { Error as MongooseError } from 'mongoose'
 import { REFRESH_TOKEN } from '../config'
-import { issueCsrfToken } from '../middlewares/csrf'
 import BadRequestError from '../errors/bad-request-error'
 import ConflictError from '../errors/conflict-error'
 import NotFoundError from '../errors/not-found-error'
@@ -18,7 +17,6 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
         const user = await User.findUserByCredentials(email, password)
         const accessToken = user.generateAccessToken()
         const refreshToken = await user.generateRefreshToken()
-        const csrfToken = issueCsrfToken(req, res)
         res.cookie(
             REFRESH_TOKEN.cookie.name,
             refreshToken,
@@ -28,7 +26,6 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
             success: true,
             user,
             accessToken,
-            csrfToken,
         })
     } catch (err) {
         return next(err)
@@ -43,7 +40,6 @@ const register = async (req: Request, res: Response, next: NextFunction) => {
         await newUser.save()
         const accessToken = newUser.generateAccessToken()
         const refreshToken = await newUser.generateRefreshToken()
-        const csrfToken = issueCsrfToken(req, res)
 
         res.cookie(
             REFRESH_TOKEN.cookie.name,
@@ -54,7 +50,6 @@ const register = async (req: Request, res: Response, next: NextFunction) => {
             success: true,
             user: newUser,
             accessToken,
-            csrfToken,
         })
     } catch (error) {
         if (error instanceof MongooseError.ValidationError) {
@@ -154,7 +149,6 @@ const refreshAccessToken = async (
         )
         const accessToken = await userWithRefreshTkn.generateAccessToken()
         const refreshToken = await userWithRefreshTkn.generateRefreshToken()
-        const csrfToken = issueCsrfToken(req, res)
         res.cookie(
             REFRESH_TOKEN.cookie.name,
             refreshToken,
@@ -164,7 +158,6 @@ const refreshAccessToken = async (
             success: true,
             user: userWithRefreshTkn,
             accessToken,
-            csrfToken,
         })
     } catch (error) {
         return next(error)

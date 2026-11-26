@@ -30,7 +30,7 @@ export const getOrders = async (
         } = req.query
 
         const currentPage = Math.max(1, Number(page) || 1)
-        const pageSize = Math.min(100, Math.max(1, Number(limit) || 10))
+        const pageSize = Math.min(10, Math.max(1, Number(limit) || 10))
 
         const filters: FilterQuery<Partial<IOrder>> = {}
 
@@ -165,7 +165,7 @@ export const getOrdersCurrentUser = async (
         const userId = res.locals.user._id
         const { search, page = 1, limit = 5 } = req.query
         const currentPage = Math.max(1, Number(page) || 1)
-        const pageSize = Math.min(100, Math.max(1, Number(limit) || 5))
+        const pageSize = Math.min(10, Math.max(1, Number(limit) || 5))
         const options = {
             skip: (currentPage - 1) * pageSize,
             limit: pageSize,

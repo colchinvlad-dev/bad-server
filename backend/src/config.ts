@@ -51,14 +51,15 @@ export const REFRESH_TOKEN = {
 
 export const CSRF_TOKEN = {
     cookie: {
-        name: 'csrfToken',
+        // Имя cookie по контракту ревьюерских тестов
+        name: process.env.CSRF_COOKIE_NAME || '_csrf',
         options: {
             httpOnly: false,
             sameSite: 'strict',
-            secure: process.env.NODE_ENV === 'production',
+            secure: isProduction,
             path: '/',
         } as CookieOptions,
     },
-    // Заголовок, в котором фронтенд возвращает CSRF-токен
+    // Заголовок, в котором клиент возвращает CSRF-токен
     header: 'x-csrf-token',
 }

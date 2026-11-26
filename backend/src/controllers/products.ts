@@ -25,7 +25,7 @@ function pickProductFields(body: Record<string, unknown>) {
 const getProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const page = Math.max(1, Number(req.query.page) || 1)
-        const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 5))
+        const limit = Math.min(10, Math.max(1, Number(req.query.limit) || 5))
         const options = {
             skip: (page - 1) * limit,
             limit,
